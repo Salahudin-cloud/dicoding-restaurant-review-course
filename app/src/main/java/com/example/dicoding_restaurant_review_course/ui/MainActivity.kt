@@ -1,0 +1,132 @@
+package com.example.dicoding_restaurant_review_course.ui
+
+import android.content.Context
+import android.os.Bundle
+import android.util.Log
+import android.view.View
+import android.view.inputmethod.InputMethodManager
+import android.widget.Toast
+import androidx.appcompat.app.AppCompatActivity
+import androidx.recyclerview.widget.DividerItemDecoration
+import androidx.recyclerview.widget.LinearLayoutManager
+import com.bumptech.glide.Glide
+import com.example.dicoding_restaurant_review_course.ApiConfig
+import com.example.dicoding_restaurant_review_course.ReviewAdapter
+import com.example.dicoding_restaurant_review_course.data.response.CustomerReviewsItem
+import com.example.dicoding_restaurant_review_course.data.response.PostReviewResponse
+import com.example.dicoding_restaurant_review_course.data.response.Restaurant
+import com.example.dicoding_restaurant_review_course.data.response.RestaurantResponse
+import com.example.dicoding_restaurant_review_course.databinding.ActivityMainBinding
+import retrofit2.Call
+import retrofit2.Callback
+import retrofit2.Response
+
+class MainActivity : AppCompatActivity() {
+
+    final lateinit var binding: ActivityMainBinding
+
+    companion object{
+        private const val TAG = "MainActivity"
+        private const val RESTAURANT_ID = "uewq1zg2zlskfw1e867"
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        binding = ActivityMainBinding.inflate(layoutInflater)
+        setContentView(binding.root)
+
+        supportActionBar?.hide()
+
+        val layoutManager = LinearLayoutManager(this)
+        binding.rvReview.layoutManager = layoutManager
+        val itemDecoration = DividerItemDecoration(this, layoutManager.orientation)
+        binding.rvReview.addItemDecoration(itemDecoration)
+
+        findRestaurant()
+
+        binding.btnSend.setOnClickListener{ view ->
+            postReview(binding.edReview.text.toString())
+            val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+            imm.hideSoftInputFromWindow(view.windowToken, 0)
+            Toast.makeText(this@MainActivity, "kamu klik tombol submit", Toast.LENGTH_SHORT).show()
+        }
+
+    }
+
+    private fun findRestaurant() {
+        showLoading(true)
+        val client = ApiConfig.getApiService(this@MainActivity).getRestaurant(RESTAURANT_ID)
+        client.enqueue(object : Callback<RestaurantResponse> {
+            override fun onResponse(
+                call: Call<RestaurantResponse>,
+                response: Response<RestaurantResponse>
+            ) {
+                showLoading(false)
+                if (response.isSuccessful) {
+                    val responseBody = response.body()
+                    if (responseBody != null) {
+                        setRestaurantData(responseBody.restaurant)
+                        setReviewData(responseBody.restaurant?.customerReviews)
+                    }
+                } else {
+                    Log.e(TAG, "onFailure: ${response.message()}")
+                }
+            }
+
+
+
+            override fun onFailure(call: Call<RestaurantResponse>, t: Throwable) {
+                showLoading(false)
+                Log.e(TAG, "onFailure: ${t.message}")
+            }
+        })
+    }
+
+    private fun setReviewData(items: List<CustomerReviewsItem?>?) {
+        val adapter = ReviewAdapter()
+        adapter.submitList(items)
+        binding.rvReview.adapter = adapter
+        binding.edReview.setText("")
+    }
+
+    private fun setRestaurantData(restaurant: Restaurant?) {
+        binding.tvTitle.text = restaurant?.name
+        binding.tvDescription.text = restaurant?.description
+        Glide.with(this@MainActivity)
+            .load("https://restaurant-api.dicoding.dev/images/large/15")
+            .into(binding.ivPicture)
+
+
+    }
+
+    private fun showLoading(isLoading: Boolean) {
+        if (isLoading) {
+            binding.progressBar.visibility = View.VISIBLE
+        } else {
+            binding.progressBar.visibility = View.GONE
+        }
+    }
+
+    private fun postReview(review:String) {
+        showLoading(true)
+        val client = ApiConfig.getApiService(this@MainActivity).postReview(RESTAURANT_ID, "user_test", review)
+        client.enqueue(object : Callback<PostReviewResponse> {
+            override fun onResponse(
+                call: Call<PostReviewResponse>,
+                response: Response<PostReviewResponse>
+            ) {
+                showLoading(false)
+                val responseBody = response.body()
+                if (response.isSuccessful && responseBody != null) {
+                    setReviewData(responseBody.customerReviews)
+                } else {
+                    Log.e(TAG, "onFailure: ${response.message()}")
+                }
+            }
+            override fun onFailure(call: Call<PostReviewResponse>, t: Throwable) {
+                showLoading(false)
+                Log.e(TAG, "onFailure: ${t.message}")
+            }
+        })
+    }
+}
