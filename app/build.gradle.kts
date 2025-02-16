@@ -39,6 +39,7 @@ android {
 }
 
 dependencies{
+    implementation ("androidx.activity:activity-ktx:1.3.1")
 
     implementation(libs.glide)
     annotationProcessor("com.github.bumptech.glide:compiler:4.16.0")
